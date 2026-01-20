@@ -1,0 +1,64 @@
+name: Create Android Cache Fix plugin Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Enter the confirmation phrase 'PRODUCTION' (without quotes) if you are sure you want to trigger a release.
+        required: true
+
+jobs:
+  production_release:
+    if: github.event.inputs.confirmation == 'PRODUCTION'
+    name: Production Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          repository: cdsap/project-releaseable
+          ref: main
+          token: ${{ secrets.GH_BOT_GITHUB_TOKEN }}
+      - name: Set up JDK 21
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5
+        with:
+          develocity-access-key: ${{ secrets.DV_ACCESS_TOKEN }}
+      - name: Publish with Gradle
+        run: echo "here I'm doing the build and uploading the build"
+        env:
+          ANDROID_CACHE_FIX_PLUGIN_GIT_TOKEN: ${{ secrets.GH_BOT_GITHUB_TOKEN }}
+          PGP_SIGNING_KEY: ${{ secrets.PGP_SIGNING_KEY }}
+          PGP_SIGNING_KEY_PASSPHRASE: ${{ secrets.PGP_SIGNING_KEY_PASSPHRASE }}
+          GRADLE_PUBLISH_KEY: ${{ secrets.PLUGIN_PORTAL_PROD_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.PLUGIN_PORTAL_PROD_PUBLISH_SECRET }}
+      - name: Resolve tag and notes
+        id: tag
+        shell: bash
+        run: |
+          VERSION="$(tr -d ' \n\r\t' < release/version.txt)"
+          NOTES="$(tr -d ' \n\r\t' < release/changes.md)"
+          if [[ -z "$VERSION" ]]; then
+            echo "release/version.txt is empty" >&2
+            exit 1
+          fi
+          if [[ -z "$NOTES" ]]; then
+            echo "release/changes.md is empty" >&2
+            exit 1
+          fi
+          RELEASE_NAME="$VERSION"
+          TAG_NAME="v$VERSION"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "notes_path=release/changes.md" >> "$GITHUB_OUTPUT"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag_name }}" \
+            --title "${{ steps.tag.outputs.release_name }}" \
+            --notes-file "${{ steps.tag.outputs.notes_path }}"          
