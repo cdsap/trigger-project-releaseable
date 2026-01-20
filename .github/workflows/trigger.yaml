@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: write
-  
+
 jobs:
   production_release:
     if: github.event.inputs.confirmation == 'PRODUCTION'
@@ -60,7 +60,7 @@ jobs:
           echo "notes_path=release/changes.md" >> "$GITHUB_OUTPUT"
       - name: Create release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BOT_GH_TOKEN }}
         run: |
           gh release create "${{ steps.tag.outputs.tag_name }}" \
             --title "${{ steps.tag.outputs.release_name }}" \
